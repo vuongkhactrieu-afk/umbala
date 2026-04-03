@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8"/>
+    <title>Bản đồ Cải cách & Các Đảo Việt Nam</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100vh; width: 100vw; background: #aad3df; }
+
+        /* Giao diện Header */
+        .header {
+            position: absolute; top: 0; width: 100%;
+            background: #1e3a8a; color: white;
+            padding: 15px; text-align: center;
+            z-index: 1000; font-weight: bold; font-size: 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        /* NÚT ĐIỀU KHIỂN */
+        .btn-control {
+            position: absolute; right: 20px;
+            color: white; padding: 10px 15px; border-radius: 8px;
+            cursor: pointer; z-index: 1000; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: 0.3s;
+        }
+        .btn-control:hover { transform: translateY(-2px); }
+
+        #btnCompare { top: 70px; background: #2563eb; }
+        #btnGame { top: 120px; background: #10b981; }
+        #btnTourVN { top: 170px; background: #f59e0b; }
+        #btnTourEN { top: 220px; background: #8b5cf6; }
+        #btnStopTour { top: 270px; background: #e11d48; display: none; } /* Nút Dừng ẩn mặc định */
+
+        /* PANEL SO SÁNH */
+        .compare-panel {
+            position: absolute; top: 0; right: -650px;
+            width: 600px; height: 100%;
+            background: white; padding: 25px;
+            overflow-y: auto; transition: 0.4s ease;
+            z-index: 1500; box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+        }
+        .compare-panel.open { right: 0; }
+
+        .close-panel {
+            position: absolute; top: 15px; right: 20px;
+            cursor: pointer; font-size: 24px; color: #ef4444; font-weight: bold;
+        }
+
+        /* BẢNG SO SÁNH */
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin-top: 15px;
+            border: 2px solid #1e293b;
+        }
+        th, td { 
+            border: 1px solid #475569; 
+            padding: 10px; 
+            font-size: 13px; 
+            text-align: left;
+            vertical-align: top;
+            color: #333;
+        }
+        th { background: #e2e8f0; color: #0f172a; font-weight: bold; }
+        tr:nth-child(even) { background: #f8fafc; }
+
+        /* OVERLAYS (POPUP & TRÒ CHƠI) */
+        .overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: none; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.75); z-index: 2000;
+        }
+
+        /* Hiệu ứng nhấp nháy, đổi màu viền cho Popup */
+        @keyframes popupGlow {
+            0% { box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 0 15px #2563eb; }
+            50% { box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 0 30px #10b981; }
+            100% { box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 0 15px #2563eb; }
+        }
+
+        .box {
+            background: white; padding: 25px;
+            border-radius: 12px; width: 90%; max-width: 500px;
+            max-height: 85vh; overflow-y: auto;
+            position: relative; 
+            color: #333;
+            animation: popupGlow 3s infinite alternate; /* Thêm hiệu ứng nhấp nháy đổi màu */
+            border: 2px solid transparent;
+        }
+
+        .close-btn {
+            position: absolute; top: 15px; right: 20px;
+            cursor: pointer; font-size: 24px; color: #ef4444; font-weight: bold;
+        }
+        
+        input { width: 95%; padding: 8px; margin: 5px 0 12px; border: 1px solid #ccc; border-radius: 5px; }
+        button.check-btn { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;}
+        button.check-btn:hover { background: #059669; }
+
+        /* Hiệu ứng nhấp nháy cho tiêu đề popup */
+        @keyframes textBlink {
+            0% { color: #1e3a8a; }
+            50% { color: #e11d48; }
+            100% { color: #1e3a8a; }
+        }
+        #title {
+            animation: textBlink 2s infinite;
+        }
+
+        /* CSS TÙY CHỈNH CHO NHÃN TÊN TRÊN BẢN ĐỒ */
+        .label-marker {
+            background: rgba(30, 41, 59, 0.9) !important;
+            color: #ffffff !important;
+            border: 1px solid #2563eb !important;
+            font-weight: bold !important;
+            font-size: 11px !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        
+        .label-island {
+            background: rgba(255, 255, 255, 0.9) !important;
+            color: #d84315 !important;
+            border: 1px solid #ff5722 !important;
+            font-weight: bold !important;
+            font-size: 10px !important;
+            border-radius: 3px !important;
+            padding: 1px 4px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Xóa mũi tên nhỏ mặc định của Leaflet để nhãn áp sát vào marker hơn */
+        .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, 
+        .leaflet-tooltip-left:before, .leaflet-tooltip-right:before {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">BẢN ĐỒ CẢI CÁCH VIỆT NAM</div>
+
+<div id="map"></div>
+
+<div class="btn-control" id="btnCompare">📊 So sánh</div>
+<div class="btn-control" id="btnGame">🎮 Trò chơi</div>
+<div class="btn-control" id="btnTourVN">🚶 Tự tham quan (VN)</div>
+<div class="btn-control" id="btnTourEN">🎧 Tham quan (EN)</div>
+<div class="btn-control" id="btnStopTour">🛑 Dừng tham quan</div>
+
+<div class="compare-panel" id="panel">
+    <span class="close-panel" id="closePanel">✖</span>
+    <h3>So sánh 3 cuộc cải cách</h3>
+    <table>
+        <tr>
+            <th>Tiêu chí</th>
+            <th>Hồ Quý Ly</th>
+            <th>Lê Thánh Tông</th>
+            <th>Minh Mạng</th>
+        </tr>
+        <tr>
+            <td>Bối cảnh</td>
+            <td>Khủng hoảng cuối Trần, xã hội rối ren, quan lại sa đọa, nông dân nổi dậy.</td>
+            <td>Đất nước ổn định nhưng bộ máy hành chính còn bất cập, quyền lực phân tán.</td>
+            <td>Bộ máy hành chính thời Gia Long còn giữ nhiều dấu vết cũ, chưa thật thống nhất.</td>
+        </tr>
+        <tr>
+            <td>Mục tiêu</td>
+            <td>Cứu vãn khủng hoảng, củng cố triều đình, tăng quyền lực trung ương, chuẩn bị chống ngoại xâm.</td>
+            <td>Xây dựng nhà nước quân chủ tập quyền mạnh, khắc phục lộng quyền và cát cứ.</td>
+            <td>Hoàn chỉnh mô hình quân chủ tập quyền, thống nhất quản lý cả nước.</td>
+        </tr>
+        <tr>
+            <td>Thành tựu</td>
+            <td>Cải cách rộng trên nhiều lĩnh vực; hạn điền, hạn nô, tiền giấy, chữ Nôm, quân sự.</td>
+            <td>Tổ chức nhà nước quy củ; Luật Hồng Đức; quân đội chặt chẽ; giáo dục phát triển; kinh tế có nền tảng.</td>
+            <td>Thiết lập hệ thống cơ quan mới; chia cả nước thành tỉnh; hành chính thống nhất, chặt chẽ.</td>
+        </tr>
+        <tr>
+            <td>Hạn chế</td>
+            <td>Chưa triệt để, thiếu lòng dân, khó tạo đoàn kết chống giặc.</td>
+            <td>Tập quyền mạnh nhưng vẫn dựa nhiều vào mô hình Nho giáo, kỷ cương rất chặt.</td>
+            <td>Tập quyền cao, nhưng mô hình quản lý mang tính bảo thủ, kiểm soát chặt.</td>
+        </tr>
+        <tr>
+            <td>Kết quả</td>
+            <td>Có tác động ban đầu nhưng triều Hồ không giữ được lâu.</td>
+            <td>Đưa thời Lê sơ vào giai đoạn phát triển vững mạnh, hưng thịnh.</td>
+            <td>Hoàn thành thống nhất hành chính và để lại di sản chia tỉnh còn ảnh hưởng lâu dài.</td>
+        </tr>
+    </table>
+    <br>
+    <b>Nhận xét:</b><br>
+    - Lê Thánh Tông: thành công nhất, đưa đất nước phát triển mạnh.<br>
+    - Hồ Quý Ly: cải cách tiến bộ nhưng thất bại do thiếu lòng dân.<br>
+    - Minh Mạng: hoàn thiện bộ máy nhưng bảo thủ.<br>
+</div>
+
+<div id="overlay" class="overlay">
+    <div class="box">
+        <span class="close-btn" id="closeOverlay">✖</span>
+        <h3 id="title"></h3>
+        <div id="content" style="line-height: 1.6;"></div>
+    </div>
+</div>
+
+<div id="game" class="overlay">
+    <div class="box">
+        <span class="close-btn" id="closeGame">✖</span>
+        <h3 style="color:#10b981; animation: none;">🎮 Trò chơi ô chữ lịch sử</h3>
+        <p><b>Điền đáp án (VIẾT HOA KHÔNG DẤU)</b></p>
+
+        <p><b>Câu 1:</b> Người tiến hành cải cách trong bối cảnh cuối thời Trần xã hội rối ren, quan lại sa đọa.</p>
+        <input id="q1">
+
+        <p><b>Câu 2:</b> Vị vua đưa thời Lê sơ bước vào giai đoạn phát triển vững mạnh và hưng thịnh nhất.</p>
+        <input id="q2">
+
+        <p><b>Câu 3:</b> Vị vua đã hoàn thành công cuộc thống nhất hành chính trên phạm vi cả nước.</p>
+        <input id="q3">
+
+        <p><b>Câu 4:</b> Loại tiền tệ mới lạ được Hồ Quý Ly cho phát hành thay thế cho tiền đồng.</p>
+        <input id="q4">
+
+        <p><b>Câu 5:</b> Tên bộ luật tiêu biểu, đồ sộ được hoàn thiện dưới thời vua Lê Thánh Tông.</p>
+        <input id="q5">
+
+        <p><b>Câu 6:</b> Loại chữ viết dân tộc được Hồ Quý Ly đề cao và đưa vào thi cử, hành chính.</p>
+        <input id="q6">
+
+        <p><b>Câu 7:</b> Chính sách nhằm hạn chế diện tích sở hữu ruộng đất tư nhân của vương hầu, quý tộc thời Hồ.</p>
+        <input id="q7">
+
+        <p><b>Câu 8:</b> Đơn vị hành chính cấp địa phương cao nhất do vua Minh Mạng thành lập, vẫn còn dùng đến ngày nay.</p>
+        <input id="q8">
+
+        <p><b>Câu 9:</b> Hệ tư tưởng được vua Lê Thánh Tông dùng làm điểm tựa vững chắc để xây dựng bộ máy kỷ cương.</p>
+        <input id="q9">
+
+        <p><b>Câu 10:</b> Yếu tố quan trọng mà triều Hồ bị thiếu khiến họ không thể tạo nên khối đoàn kết chống giặc.</p>
+        <input id="q10">
+
+        <button class="check-btn" onclick="checkGame()">✅ Kiểm tra kết quả</button>
+        <p id="score" style="margin-top: 15px; font-size: 18px; color: #e11d48;"></p>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // ===== 1. KHỞI TẠO BẢN ĐỒ GOOGLE MAPS =====
+    var map = L.map('map').setView([16.0, 108.0], 6);
+
+    L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Map data &copy; Google'
+    }).addTo(map);
+
+    // ===== 2. HÀM HIỂN THỊ THÔNG TIN POPUP =====
+    var overlay = document.getElementById("overlay");
+    var titleEl = document.getElementById("title");
+    var contentEl = document.getElementById("content");
+
+    function show(title, content) {
+        titleEl.innerText = title;
+        contentEl.innerHTML = content;
+        overlay.style.display = "flex";
+    }
+
+    document.getElementById("closeOverlay").onclick = function() { overlay.style.display = "none"; };
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = "none"; };
+
+    // ===== 3. THÊM MARKERS ĐỊA DANH LỚN (Có nhãn tên bên ngoài) =====
+    function addMarker(lat, lng, title, content) {
+        var m = L.marker([lat, lng]).addTo(map);
+        
+        // Gắn nhãn hiển thị vĩnh viễn bên dưới marker
+        m.bindTooltip(title, {
+            permanent: true,
+            direction: 'bottom',
+            className: 'label-marker',
+            offset: [0, 15] // Đẩy nhãn xuống một chút để không đè lên icon giọt nước
+        });
+
+        m.on("click", function(e) {
+            L.DomEvent.stopPropagation(e);
+            map.flyTo([lat, lng], 8, { duration: 1.5 });
+            show(title, content); // Hiển thị nội dung tĩnh ngắn gọn khi tự bấm
+        });
+    }
+
+    addMarker(20.0, 105.8, "CẢI CÁCH HỒ QUÝ LY", "<b>Nguyên nhân:</b> Khủng hoảng cuối Trần<br><b>Kết quả:</b> Thất bại nhanh<br><b>Ý nghĩa:</b> Cải cách đầu tiên");
+    addMarker(21.03, 105.85, "CẢI CÁCH LÊ THÁNH TÔNG", "<b>Nguyên nhân:</b> Xây dựng nhà nước mạnh<br><b>Kết quả:</b> Hưng thịnh<br><b>Ý nghĩa:</b> Đỉnh cao phong kiến");
+    addMarker(16.47, 107.58, "CẢI CÁCH MINH MẠNG", "<b>Nguyên nhân:</b> Thống nhất quản lý<br><b>Kết quả:</b> Bộ máy hoàn chỉnh<br><b>Ý nghĩa:</b> Hoàn thiện nhà nước");
+
+    // ĐÃ TÌNH CHỈNH LẠI TỌA ĐỘ 2 QUẦN ĐẢO VÀO CHÍNH GIỮA KHU VỰC BẢN ĐỒ
+    addMarker(16.50, 112.00, "QUẦN ĐẢO HOÀNG SA", "<b>Thuộc:</b> Thành phố Đà Nẵng<br><br>- Gồm khoảng 30 đảo, đá, bãi cạn.<br>- Vị trí chiến lược quan trọng.<br><br><b>Giá trị:</b> Ngư trường lớn, tiềm năng dầu khí.<br><b>Chủ quyền:</b> Việt Nam");
+    addMarker(9.50, 114.00, "QUẦN ĐẢO TRƯỜNG SA", "<b>Thuộc:</b> Tỉnh Khánh Hòa<br><br>- Gồm hơn 100 đảo và bãi san hô phong phú.<br><br><b>Giá trị:</b> Tuyến hàng hải quốc tế huyết mạch, quốc phòng quan trọng.<br><b>Chủ quyền:</b> Việt Nam");
+
+
+    // ===== 4. THÊM CÁC ĐẢO NHỎ (Có nhãn tên bên ngoài) =====
+    var islandsData = [
+        // Miền Bắc
+        {coord: [20.73, 107.05], title: "CÁT BÀ", province: "Hải Phòng", value: "du lịch, sinh thái, vịnh – rừng quốc gia"},
+        {coord: [20.13, 107.73], title: "BẠCH LONG VĨ", province: "Hải Phòng", value: "ngư nghiệp, dịch vụ hậu cần nghề cá, vị trí chiến lược"},
+        {coord: [20.99, 107.76], title: "CÔ TÔ", province: "Quảng Ninh", value: "du lịch biển, đánh bắt hải sản"},
+        {coord: [21.05, 107.50], title: "VÂN ĐỒN", province: "Quảng Ninh", value: "kinh tế biển, du lịch, khu kinh tế"},
+        // Miền Trung
+        {coord: [17.16, 107.33], title: "CỒN CỎ", province: "Quảng Trị", value: "quân sự, bảo vệ chủ quyền, ngư nghiệp"},
+        {coord: [15.38, 109.11], title: "LÝ SƠN", province: "Quảng Ngãi", value: "du lịch, hải sản, tỏi đặc sản"},
+        {coord: [10.51, 108.93], title: "PHÚ QUÝ", province: "Bình Thuận", value: "đánh bắt, năng lượng gió – điện, du lịch"},
+        // Miền Nam
+        {coord: [8.68, 106.60], title: "CÔN ĐẢO", province: "Bà Rịa – Vũng Tàu", value: "du lịch, lịch sử, bảo tồn biển"},
+        {coord: [10.23, 103.96], title: "PHÚ QUỐC", province: "Kiên Giang", value: "du lịch quốc tế, kinh tế biển, bất động sản"},
+        {coord: [9.81, 104.51], title: "HỒN SƠN", province: "Kiên Giang", value: "du lịch, ngư nghiệp"},
+        {coord: [9.67, 104.35], title: "NAM DU", province: "Kiên Giang", value: "du lịch, đánh bắt"},
+        {coord: [9.30, 103.48], title: "THỔ CHU", province: "Kiên Giang", value: "quốc phòng, chủ quyền, ngư nghiệp"}
+    ];
+
+    islandsData.forEach(function(item) {
+        var circle = L.circleMarker(item.coord, {
+            radius: 6,
+            fillColor: "#ff5722",
+            color: "#ffffff",
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).addTo(map);
+
+        // Gắn nhãn hiển thị vĩnh viễn bên dưới chấm tròn
+        circle.bindTooltip(item.title, {
+            permanent: true,
+            direction: 'bottom',
+            className: 'label-island',
+            offset: [0, 8] // Đẩy nhãn xuống dưới chấm tròn một chút
+        });
+
+        circle.on("click", function(e) {
+            L.DomEvent.stopPropagation(e);
+            map.flyTo(item.coord, 9, { duration: 1.5 });
+            var popupContent = "<b>Thuộc:</b> " + item.province + "<br><br><b>Giá trị:</b> " + item.value;
+            show(item.title, popupContent);
+        });
+    });
+
+
+    // ===== 5. ĐIỀU KHIỂN PANEL SO SÁNH =====
+    var panel = document.getElementById("panel");
+    document.getElementById("btnCompare").onclick = function() { panel.classList.toggle("open"); };
+    document.getElementById("closePanel").onclick = function() { panel.classList.remove("open"); };
+
+    // ===== 6. TRÒ CHƠI Ô CHỮ =====
+    var gameOverlay = document.getElementById("game");
+    document.getElementById("btnGame").onclick = function() { gameOverlay.style.display = "flex"; };
+    document.getElementById("closeGame").onclick = function() { gameOverlay.style.display = "none"; };
+    gameOverlay.onclick = function(e) { if (e.target === gameOverlay) gameOverlay.style.display = "none"; };
+
+    function normalize(s) { return s.trim().toUpperCase().replace(/\s+/g, ''); }
+
+    function checkGame() {
+        let answers = [
+            "HOQUYLY", "LETHANHTONG", "MINHMANG", "TIENGIAY", "LUATHONGDUC",
+            "CHUNOM", "HANDIEN", "TINH", "NHOGIAO", "LONGDAN"
+        ];
+        let score = 0;
+
+        for (let i = 0; i < answers.length; i++) {
+            let inputVal = document.getElementById("q" + (i + 1)).value;
+            if (normalize(inputVal) === answers[i]) {
+                score++;
+            }
+        }
+        
+        // Chỉ hiển thị tổng điểm đúng, không hiện chi tiết sai/đúng từng câu
+        document.getElementById("score").innerHTML = "<b>Tổng số câu trả lời đúng: " + score + "/10</b>";
+    }
+
+    // ===== 7. CHỨC NĂNG TỰ THAM QUAN (AUTO TOUR) CÓ THUYẾT TRÌNH =====
+    
+    // Dữ liệu tham quan bằng Tiếng Việt (Nội dung dài cho chế độ thuyết trình)
+    const tourDataVN = [
+        { lat: 20.0, lng: 105.8, title: "CẢI CÁCH HỒ QUÝ LY", tourContent: "<p>Kính chào quý vị. Điểm đến đầu tiên của chúng ta là vùng đất gắn liền với cuộc cải cách của Hồ Quý Ly.</p><p>Diễn ra trong bối cảnh nhà Trần suy yếu, xã hội khủng hoảng trầm trọng. Dù đưa ra nhiều chính sách táo bạo như phát hành tiền giấy, hạn điền, hạn nô, nhưng do thiếu sự ủng hộ của nhân dân nên cuộc cải cách đã nhanh chóng thất bại.</p>" },
+        { lat: 21.03, lng: 105.85, title: "CẢI CÁCH LÊ THÁNH TÔNG", tourContent: "<p>Tiếp theo, chúng ta đến với cuộc cải cách của vua Lê Thánh Tông tại Thăng Long.</p><p>Với mục tiêu xây dựng một nhà nước phong kiến tập quyền vững mạnh, ông đã hoàn thiện bộ máy hành chính, ban hành bộ Quốc triều hình luật (Luật Hồng Đức). Đây được xem là thời kỳ hưng thịnh nhất, đưa chế độ phong kiến Việt Nam phát triển đến đỉnh cao.</p>" },
+        { lat: 16.47, lng: 107.58, title: "CẢI CÁCH MINH MẠNG", tourContent: "<p>Cuối cùng là cuộc cải cách của vua Minh Mạng tại kinh thành Huế.</p><p>Nhằm thống nhất quản lý đất nước sau một thời gian dài phân liệt, vua Minh Mạng đã tiến hành cải cách hành chính sâu rộng, chia cả nước thành các tỉnh. Sự kiện này đã hoàn thiện bộ máy nhà nước quân chủ chuyên chế và để lại dấu ấn phân chia hành chính đến tận ngày nay.</p>" }
+    ];
+
+    // Dữ liệu tham quan bằng Tiếng Anh (Nội dung dài cho chế độ thuyết trình)
+    const tourDataEN = [
+        { lat: 20.0, lng: 105.8, title: "HO QUY LY'S REFORM", tourContent: "<p>Welcome! Our first destination is associated with Ho Quy Ly's reform.</p><p>Occurring during the severe crisis of the late Tran dynasty, Ho Quy Ly introduced bold policies like paper money and land limits. However, lacking the people's support, the reform quickly failed.</p>", speech: "Welcome! Our first destination is associated with Ho Quy Ly's reform. Occurring during the severe crisis of the late Tran dynasty, Ho Quy Ly introduced bold policies like paper money and land limits. However, lacking the people's support, the reform quickly failed." },
+        { lat: 21.03, lng: 105.85, title: "LE THANH TONG'S REFORM", tourContent: "<p>Next, we visit King Le Thanh Tong's reform in Thang Long.</p><p>Aiming to build a strong centralized state, he perfected the administrative apparatus and issued the Hong Duc Law. This is considered the most prosperous period, bringing Vietnamese feudalism to its peak.</p>", speech: "Next, we visit King Le Thanh Tong's reform in Thang Long. Aiming to build a strong centralized state, he perfected the administrative apparatus and issued the Hong Duc Law. This is considered the most prosperous period, bringing Vietnamese feudalism to its peak." },
+        { lat: 16.47, lng: 107.58, title: "MINH MANG'S REFORM", tourContent: "<p>Finally, King Minh Mang's reform in Hue.</p><p>To unify the country's administration, he carried out extensive administrative reforms, dividing the country into provinces. This perfected the state apparatus and left a lasting administrative legacy.</p>", speech: "Finally, King Minh Mang's reform in Hue. To unify the country's administration, he carried out extensive administrative reforms, dividing the country into provinces. This perfected the state apparatus and left a lasting administrative legacy." }
+    ];
+
+    let isTouring = false;
+    let tourWaitResolve = null; // Dùng để ngắt thời gian chờ ngay lập tức khi bấm "Dừng"
+
+    // Hàm Dừng tham quan
+    function stopTour() {
+        if (!isTouring) return;
+        isTouring = false;
+        window.speechSynthesis.cancel(); // Tắt giọng đọc ngay lập tức
+        overlay.style.display = "none";  // Đóng popup
+        document.getElementById("btnStopTour").style.display = "none"; // Ẩn nút Dừng
+        if (tourWaitResolve) tourWaitResolve(); // Giải phóng thời gian chờ để thoát khỏi vòng lặp Tour
+    }
+    
+    document.getElementById("btnStopTour").onclick = stopTour;
+
+    async function startTour(language) {
+        if (isTouring) return;
+        isTouring = true;
+        
+        // Hiện nút dừng khi bắt đầu
+        document.getElementById("btnStopTour").style.display = "block";
+        
+        const tourData = language === 'EN' ? tourDataEN : tourDataVN;
+        
+        for (let i = 0; i < tourData.length; i++) {
+            if (!isTouring) break;
+            let spot = tourData[i];
+            
+            // Di chuyển đến địa điểm
+            map.flyTo([spot.lat, spot.lng], 8, { duration: 2 });
+            
+            // Chờ map bay xong (Có thể bị ngắt bởi tourWaitResolve)
+            await new Promise(r => {
+                tourWaitResolve = r;
+                setTimeout(r, 2500);
+            });
+            if (!isTouring) break;
+            
+            // Hiển thị thông tin phiên bản DÀI (tourContent)
+            show(spot.title, spot.tourContent);
+            
+            // Nếu là tiếng Anh thì đọc văn bản
+            if (language === 'EN') {
+                let utterance = new SpeechSynthesisUtterance(spot.speech);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+                
+                // Đợi đọc xong hoặc tối đa 10 giây
+                await new Promise(r => {
+                    tourWaitResolve = r;
+                    utterance.onend = r;
+                    setTimeout(r, 10000); 
+                });
+            } else {
+                // Nếu tiếng Việt, chờ 8 giây để người dùng đọc kịp (bản text dài hơn bản cũ)
+                await new Promise(r => {
+                    tourWaitResolve = r;
+                    setTimeout(r, 8000);
+                });
+            }
+            
+            if (!isTouring) break;
+            
+            // Đóng popup trước khi qua điểm tiếp theo
+            overlay.style.display = "none";
+            await new Promise(r => {
+                tourWaitResolve = r;
+                setTimeout(r, 1000);
+            });
+        }
+        
+        // Quay về vị trí trung tâm mặc định sau khi kết thúc (Nếu không phải do người dùng bấm Dừng)
+        if (isTouring) {
+            map.flyTo([16.0, 108.0], 6, { duration: 2 });
+            isTouring = false;
+            document.getElementById("btnStopTour").style.display = "none"; // Ẩn nút dừng
+        }
+    }
+
+    document.getElementById("btnTourVN").onclick = () => {
+        window.speechSynthesis.cancel();
+        startTour('VN');
+    };
+
+    document.getElementById("btnTourEN").onclick = () => {
+        window.speechSynthesis.cancel();
+        startTour('EN');
+    };
+</script>
+</body>
+</html>
